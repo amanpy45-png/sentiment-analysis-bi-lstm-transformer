@@ -22,7 +22,7 @@ def load_lstm_model():
     url = "https://drive.google.com/uc?id=1fuc8GRgjm95J-bqBi_F6jq6aKmzJeqlF"
     output = "lstm_model.keras"
     if not os.path.exists(output):
-        gdown.download(url, output, quiet=False)
+        gdown.download(url, output, quiet=False, fuzzy=True)
     model = load_model(output)
     return model
 
@@ -57,19 +57,20 @@ def predict_sentiment(text):
     return label, confidence
 
 # =========================
-# TRANSFORMER MODEL (LIGHTER)
+# TRANSFORMER MODEL
 # =========================
 @st.cache_resource
 def load_transformer():
     return pipeline(
         "sentiment-analysis",
-        model="distilbert-base-uncased-finetuned-sst-2-english"
+        model="distilbert-base-uncased-finetuned-sst-2-english",
+        framework="pt"
     )
 
 sentiment_model = load_transformer()
 
 def predict_general(text):
-    result = sentiment_model(text)[0]
+    result = sentiment_model(text, truncation=True, max_length=512)[0]
     label = result["label"]
     confidence = result["score"]
     return label, confidence
