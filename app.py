@@ -62,11 +62,11 @@ def predict_sentiment(text):
     return label, confidence
 
 # =========================
-# TRANSFORMER MODEL (Pure PyTorch)
+# TRANSFORMER MODEL (Cardiff RoBERTa - 3 classes)
 # =========================
 @st.cache_resource
 def load_transformer():
-    model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+    model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
     tok = AutoTokenizer.from_pretrained(model_name)
     mod = AutoModelForSequenceClassification.from_pretrained(model_name)
     mod.eval()
@@ -85,7 +85,7 @@ def predict_general(text):
         outputs = bert_model(**inputs)
     probs = F.softmax(outputs.logits, dim=-1)
     confidence, predicted = torch.max(probs, dim=1)
-    labels = ["Negative", "Positive"]
+    labels = ["Negative", "Neutral", "Positive"]
     return labels[predicted.item()], confidence.item()
 
 # =========================
