@@ -1,26 +1,37 @@
 import streamlit as st
 import numpy as np
 import pickle
+import os
+import gdown
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from transformers import pipeline
 
 # =========================
-# 🔹 PAGE CONFIG
+# PAGE CONFIG
 # =========================
 st.set_page_config(page_title="Sentiment Analyzer", layout="centered")
 
 st.title("💬 Sentiment Analysis System")
-st.write("Compare Bi-LSTM vs Transformer (RoBERTa)")
+st.write("Compare Bi-LSTM vs Transformer")
 
 # =========================
-# 🔹 LOAD BI-LSTM MODEL
+# LOAD LSTM MODEL (Google Drive)
 # =========================
 @st.cache_resource
 def load_lstm_model():
-    model = load_model("lstm_model.keras")
+    url = "https://drive.google.com/uc?id=1fuc8GRgjm95J-bqBi_F6jq6aKmzJeqlF"
+    output = "lstm_model.keras"
+
+    if not os.path.exists(output):
+        gdown.download(url, output, quiet=False)
+
+    model = load_model(output)
     return model
 
+# =========================
+# LOAD TOKENIZER
+# =========================
 @st.cache_resource
 def load_tokenizer():
     with open("tokenizer.pkl", "rb") as f:
@@ -30,31 +41,36 @@ def load_tokenizer():
 model = load_lstm_model()
 tokenizer = load_tokenizer()
 
-max_len = 100  # ⚠️ must match training
+max_len = 100
 
 # =========================
-# 🔹 LSTM PREDICTION
+# LSTM PREDICTION
 # =========================
 def predict_sentiment(text):
     seq = tokenizer.texts_to_sequences([text])
     padded = pad_sequences(seq, maxlen=max_len)
 
-    pred = model.predict(padded, verbose=0)[0]
-    label = np.argmax(pred)
-    confidence = np.max(pred)
+    pred = model.predict(padded, verbose=0)
 
-    mapping = {0: "Negative", 1: "Neutral", 2: "Positive"}
+    # handle both binary & multi-class
+    if pred.shape[-1] == 1:
+        label = "Positive" if pred[0][0] > 0.5 else "Negative"
+        confidence = float(pred[0][0])
+    else:
+        idx = np.argmax(pred)
+        confidence = float(np.max(pred))
+        mapping = {0: "Negative", 1: "Neutral", 2: "Positive"}
+        label = mapping[idx]
 
-    return mapping[label], confidence
+    return label, confidence
 
 # =========================
-# 🔹 TRANSFORMER MODEL
+# TRANSFORMER MODEL (LIGHTER)
 # =========================
 @st.cache_resource
 def load_transformer():
     return pipeline(
-        "text-classification",
-        model="cardiffnlp/twitter-roberta-base-sentiment-latest"
+        "sentiment-analysis"   # ⚠️ lighter model auto-used
     )
 
 sentiment_model = load_transformer()
@@ -62,21 +78,13 @@ sentiment_model = load_transformer()
 def predict_general(text):
     result = sentiment_model(text)[0]
 
-    label = result["label"].lower()
+    label = result["label"]
+    confidence = result["score"]
 
-    label_map = {
-        "positive": "Positive",
-        "negative": "Negative",
-        "neutral": "Neutral",
-        "label_0": "Negative",
-        "label_1": "Neutral",
-        "label_2": "Positive"
-    }
-
-    return label_map[label], result["score"]
+    return label, confidence
 
 # =========================
-# 🔹 UI INPUT
+# UI INPUT
 # =========================
 text = st.text_area("Enter your text:")
 
@@ -86,15 +94,9 @@ if st.button("Analyze Sentiment"):
         st.warning("Please enter some text.")
     else:
 
-        # LSTM
         lstm_label, lstm_conf = predict_sentiment(text)
-
-        # Transformer
         bert_label, bert_conf = predict_general(text)
 
-        # =========================
-        # 🔹 OUTPUT
-        # =========================
         st.subheader("Results")
 
         col1, col2 = st.columns(2)
@@ -109,16 +111,10 @@ if st.button("Analyze Sentiment"):
             st.write(f"**Prediction:** {bert_label}")
             st.write(f"**Confidence:** {bert_conf:.2f}")
 
-        # =========================
-        # 🔹 COMPARISON
-        # =========================
         st.subheader("Comparison")
 
         if lstm_label == bert_label:
             st.success("✅ Both models agree")
         else:
             st.error("⚠️ Models disagree")
-
-        # Optional insight
-        if lstm_label != bert_label:
-            st.info("Transformer is generally more accurate for complex sentences due to attention mechanism.")
+            st.info("Transformer usually performs better on complex sentences.")
