@@ -11,7 +11,6 @@ from transformers import pipeline
 # PAGE CONFIG
 # =========================
 st.set_page_config(page_title="Sentiment Analyzer", layout="centered")
-
 st.title("💬 Sentiment Analysis System")
 st.write("Compare Bi-LSTM vs Transformer")
 
@@ -22,10 +21,8 @@ st.write("Compare Bi-LSTM vs Transformer")
 def load_lstm_model():
     url = "https://drive.google.com/uc?id=1fuc8GRgjm95J-bqBi_F6jq6aKmzJeqlF"
     output = "lstm_model.keras"
-
     if not os.path.exists(output):
         gdown.download(url, output, quiet=False)
-
     model = load_model(output)
     return model
 
@@ -40,7 +37,6 @@ def load_tokenizer():
 
 model = load_lstm_model()
 tokenizer = load_tokenizer()
-
 max_len = 100
 
 # =========================
@@ -49,10 +45,7 @@ max_len = 100
 def predict_sentiment(text):
     seq = tokenizer.texts_to_sequences([text])
     padded = pad_sequences(seq, maxlen=max_len)
-
     pred = model.predict(padded, verbose=0)
-
-    # handle both binary & multi-class
     if pred.shape[-1] == 1:
         label = "Positive" if pred[0][0] > 0.5 else "Negative"
         confidence = float(pred[0][0])
@@ -61,7 +54,6 @@ def predict_sentiment(text):
         confidence = float(np.max(pred))
         mapping = {0: "Negative", 1: "Neutral", 2: "Positive"}
         label = mapping[idx]
-
     return label, confidence
 
 # =========================
@@ -70,17 +62,16 @@ def predict_sentiment(text):
 @st.cache_resource
 def load_transformer():
     return pipeline(
-        "sentiment-analysis"   # ⚠️ lighter model auto-used
+        "sentiment-analysis",
+        model="distilbert-base-uncased-finetuned-sst-2-english"
     )
 
 sentiment_model = load_transformer()
 
 def predict_general(text):
     result = sentiment_model(text)[0]
-
     label = result["label"]
     confidence = result["score"]
-
     return label, confidence
 
 # =========================
@@ -89,16 +80,13 @@ def predict_general(text):
 text = st.text_area("Enter your text:")
 
 if st.button("Analyze Sentiment"):
-
     if text.strip() == "":
         st.warning("Please enter some text.")
     else:
-
         lstm_label, lstm_conf = predict_sentiment(text)
         bert_label, bert_conf = predict_general(text)
 
         st.subheader("Results")
-
         col1, col2 = st.columns(2)
 
         with col1:
@@ -112,7 +100,6 @@ if st.button("Analyze Sentiment"):
             st.write(f"**Confidence:** {bert_conf:.2f}")
 
         st.subheader("Comparison")
-
         if lstm_label == bert_label:
             st.success("✅ Both models agree")
         else:
