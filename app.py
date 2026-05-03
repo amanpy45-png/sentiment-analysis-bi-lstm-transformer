@@ -19,10 +19,14 @@ st.write("Compare Bi-LSTM vs Transformer")
 # =========================
 @st.cache_resource
 def load_lstm_model():
-    url = "https://drive.google.com/uc?id=1fuc8GRgjm95J-bqBi_F6jq6aKmzJeqlF"
     output = "lstm_model.keras"
     if not os.path.exists(output):
-        gdown.download(url, output, quiet=False, fuzzy=True)
+        file_id = "1fuc8GRgjm95J-bqBi_F6jq6aKmzJeqlF"
+        gdown.download(
+            id=file_id,
+            output=output,
+            quiet=False
+        )
     model = load_model(output)
     return model
 
