@@ -1,11 +1,16 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 import streamlit as st
 import numpy as np
 import pickle
-import os
 import gdown
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-from transformers import pipeline
+import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch.nn.functional as F
 
 # =========================
 # PAGE CONFIG
@@ -22,11 +27,7 @@ def load_lstm_model():
     output = "lstm_model.keras"
     if not os.path.exists(output):
         file_id = "1fuc8GRgjm95J-bqBi_F6jq6aKmzJeqlF"
-        gdown.download(
-            id=file_id,
-            output=output,
-            quiet=False
-        )
+        gdown.download(id=file_id, output=output, quiet=False)
     model = load_model(output)
     return model
 
@@ -61,23 +62,31 @@ def predict_sentiment(text):
     return label, confidence
 
 # =========================
-# TRANSFORMER MODEL
+# TRANSFORMER MODEL (Pure PyTorch)
 # =========================
 @st.cache_resource
 def load_transformer():
-    return pipeline(
-        "sentiment-analysis",
-        model="distilbert-base-uncased-finetuned-sst-2-english",
-        framework="pt"
-    )
+    model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+    tok = AutoTokenizer.from_pretrained(model_name)
+    mod = AutoModelForSequenceClassification.from_pretrained(model_name)
+    mod.eval()
+    return tok, mod
 
-sentiment_model = load_transformer()
+bert_tokenizer, bert_model = load_transformer()
 
 def predict_general(text):
-    result = sentiment_model(text, truncation=True, max_length=512)[0]
-    label = result["label"]
-    confidence = result["score"]
-    return label, confidence
+    inputs = bert_tokenizer(
+        text,
+        return_tensors="pt",
+        truncation=True,
+        max_length=512
+    )
+    with torch.no_grad():
+        outputs = bert_model(**inputs)
+    probs = F.softmax(outputs.logits, dim=-1)
+    confidence, predicted = torch.max(probs, dim=1)
+    labels = ["NEGATIVE", "POSITIVE"]
+    return labels[predicted.item()], confidence.item()
 
 # =========================
 # UI INPUT
