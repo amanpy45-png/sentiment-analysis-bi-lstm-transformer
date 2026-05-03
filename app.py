@@ -85,7 +85,7 @@ def predict_general(text):
         outputs = bert_model(**inputs)
     probs = F.softmax(outputs.logits, dim=-1)
     confidence, predicted = torch.max(probs, dim=1)
-    labels = ["NEGATIVE", "POSITIVE"]
+    labels = ["Negative", "Positive"]
     return labels[predicted.item()], confidence.item()
 
 # =========================
@@ -114,7 +114,7 @@ if st.button("Analyze Sentiment"):
             st.write(f"**Confidence:** {bert_conf:.2f}")
 
         st.subheader("Comparison")
-        if lstm_label == bert_label:
+        if lstm_label.upper() == bert_label.upper():
             st.success("✅ Both models agree")
         else:
             st.error("⚠️ Models disagree")
